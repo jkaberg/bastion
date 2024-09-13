@@ -1,0 +1,89 @@
+#!/bin/bash
+
+if [ -f /etc/gotify/env ]; then
+  . /etc/gotify/env
+fi
+
+set -o pipefail
+
+function debug() {
+  if [ "${DEBUG}" == "true" ]; then
+    echo "DEBUG: $*" >&2
+  fi
+}
+
+if [ -n "${SSH_CLIENT}" ]; then
+  # Invoked as an SSH ForceCommand
+  export SSH_USER="${USER}"
+  export SSH_CLIENT_IP="$(echo "$SSH_CONNECTION" | cut -d' ' -f1)"
+  export SSH_TERM="tty${SSH_TTY##*/}"
+  if [ "${SSH_TERM}" == "tty" ]; then
+    export SSH_TERM="notty"
+  fi
+  export SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND:-shell}"
+  TEMPLATE_TYPE="ssh"
+elif [ "${PAM_TYPE}" == "open_session" ]; then
+  # Invoked as a PAM module
+  TEMPLATE_TYPE="pam"
+else
+  echo "Unknown invocation" >&2
+  exit 1
+fi
+
+if [ -s "/etc/hostname" ]; then
+  export HOSTNAME=`cat /etc/hostname`
+else
+  export HOSTNAME=`hostname`
+fi
+export SHORT_HOSTNAME="${HOSTNAME%%.*}"
+export GOTIFY_TIMEOUT="${GOTIFY_TIMEOUT:-2}"
+export GOTIFY_FATAL_ERRORS="${GOTIFY_FATAL_ERRORS:-true}"
+
+if [ -z "${GOTIFY_URL}" ]; then
+  echo "GOTIFY_URL not defined"
+  exit 1
+fi
+
+if [ -z "${GOTIFY_APP_TOKEN}" ]; then
+  echo "GOTIFY_APP_TOKEN not defined"
+  exit 1
+fi
+
+SSH_TEMPLATE='{
+  "title": "SSH Login to ${HOSTNAME}",
+  "message": "User ${SSH_USER} logged in from ${SSH_CLIENT_IP} using ${SSH_TERM}.\nOriginal command: ${SSH_ORIGINAL_COMMAND}"
+}'
+
+PAM_TEMPLATE='{
+  "title": "PAM Session Opened on ${HOSTNAME}",
+  "message": "User ${PAM_USER} opened a new session.\nService: ${PAM_SERVICE}, TTY: ${PAM_TTY}"
+}'
+
+# Select the appropriate template
+if [ "$TEMPLATE_TYPE" == "ssh" ]; then
+  TEMPLATE="$SSH_TEMPLATE"
+else
+  TEMPLATE="$PAM_TEMPLATE"
+fi
+
+# Process the template
+GOTIFY_MESSAGE=$(echo "$TEMPLATE" | envsubst)
+GOTIFY_TITLE=$(echo "${GOTIFY_MESSAGE}" | jq -r '.title')
+GOTIFY_MESSAGE_BODY=$(echo "${GOTIFY_MESSAGE}" | jq -r '.message')
+
+# Send notification to Gotify
+curl --fail --silent --connect-timeout ${GOTIFY_TIMEOUT} \
+  -X POST "${GOTIFY_URL}/message" \
+  -H "Content-Type: application/json" \
+  -H "X-Gotify-Key: ${GOTIFY_APP_TOKEN}" \
+  -d "{\"title\":\"${GOTIFY_TITLE}\",\"message\":\"${GOTIFY_MESSAGE_BODY}\",\"priority\":5}" >/dev/null
+
+exit=$?
+
+if [ $exit -eq 0 ]; then
+  debug "Gotify notification sent"
+  exit $exit
+elif [ "${GOTIFY_FATAL_ERRORS}" == "true" ]; then
+  debug "Gotify notification failed"
+  exit $exit
+fi

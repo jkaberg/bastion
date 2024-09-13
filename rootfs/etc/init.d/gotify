@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ "${GOTIFY_ENABLED}" == "true" ]; then
+  echo "- Enabling Gotify Notifications"
+  env | grep "^GOTIFY_" > /etc/gotify/env
+  if [ "${GOTIFY_HOOK}" == "sshrc" ]; then
+    mkdir -p /etc/ssh/sshrc.d/
+    ln -sf /usr/bin/gotify-notification /etc/ssh/sshrc.d/gotify-notification
+    chmod 644 /etc/gotify/env
+  elif [ "${GOTIFY_HOOK}" == "pam" ]; then
+    ln -sf /usr/bin/gotify-notification /etc/enforce.d/1.gotify-notification
+    chmod 600 /etc/gotify/env
+  else
+    echo "Invalid GOTIFY_HOOK" >&2
+    exit 1
+  fi
+fi
