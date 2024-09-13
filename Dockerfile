@@ -1,7 +1,7 @@
 ##
 ## Base builder image
 ##
-FROM alpine:3.17 as builder
+FROM alpine:3.20.3 AS builder
 
 RUN apk --update add --virtual .build-deps build-base automake autoconf libtool git linux-pam-dev zlib-dev openssl-dev wget
 
@@ -9,9 +9,9 @@ RUN apk --update add --virtual .build-deps build-base automake autoconf libtool 
 ##
 ## Duo builder image
 ##
-FROM builder as duo-builder
+FROM builder AS duo-builder
 
-ARG DUO_VERSION=2.0.0
+ARG DUO_VERSION=2.0.3
 RUN wget https://dl.duosecurity.com/duo_unix-${DUO_VERSION}.tar.gz && \
     mkdir -p src && \
     tar -zxf duo_unix-${DUO_VERSION}.tar.gz --strip-components=1 -C src
@@ -27,9 +27,9 @@ RUN cd src && \
 ##
 ## Google Authenticator PAM module builder image
 ##
-FROM builder as google-authenticator-libpam-builder
+FROM builder AS google-authenticator-libpam-builder
 
-ARG AUTHENTICATOR_LIBPAM_VERSION=1.09
+ARG AUTHENTICATOR_LIBPAM_VERSION=1.10
 RUN git clone --branch ${AUTHENTICATOR_LIBPAM_VERSION} --single-branch https://github.com/google/google-authenticator-libpam src
 
 RUN cd src && \
@@ -43,9 +43,9 @@ RUN cd src && \
 ##
 ## OpenSSH Portable builder image
 ##
-FROM builder as openssh-portable-builder
+FROM builder AS openssh-portable-builder
 
-ARG OPENSSH_VERSION=V_9_3_P1
+ARG OPENSSH_VERSION=V_9_8_P1
 RUN git clone --branch ${OPENSSH_VERSION} --single-branch https://github.com/openssh/openssh-portable src
 
 COPY patches/ /patches/
@@ -74,7 +74,7 @@ RUN cd src && \
 ##
 ## Bastion image
 ##
-FROM alpine:3.17
+FROM alpine:3.20.3
 
 LABEL maintainer="joel@kaberg.me"
 
