@@ -77,6 +77,7 @@ RUN cd src && \
 FROM alpine:3.20.3
 
 LABEL maintainer="joel@kaberg.me"
+LABEL org.opencontainers.image.source=https://github.com/jkaberg/bastion
 
 USER root
 
