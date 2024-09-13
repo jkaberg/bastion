@@ -1,7 +1,0 @@
-build-harness/
-Makefile.build-harness
-
-.idea
-*.iml
-
-test/fixtures/auth/ida_rsa*

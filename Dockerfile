@@ -76,7 +76,7 @@ RUN cd src && \
 ##
 FROM alpine:3.17
 
-LABEL maintainer="erik@cloudposse.com"
+LABEL maintainer="joel@kaberg.me"
 
 USER root
 
